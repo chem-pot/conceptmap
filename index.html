@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>개념도 작성 도구</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f0efe9;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#toolbar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#fff;border-bottom:1.5px solid #e0ddd5;flex-shrink:0;flex-wrap:wrap}
+.sep{width:1px;height:24px;background:#e0ddd5;margin:0 4px}
+.tlabel{font-size:11px;color:#999;white-space:nowrap}
+button{font-family:inherit;font-size:13px;padding:5px 12px;border:1px solid #d0cec8;border-radius:7px;background:#fff;cursor:pointer;color:#333}
+button:hover{background:#f0eefc;border-color:#7f77dd}
+button.prim{background:#534AB7;color:#fff;border-color:#534AB7}
+button.prim:hover{background:#3C3489}
+button.red{border-color:#f09595;color:#a32d2d}
+button.red:hover{background:#fcebeb}
+select{font-family:inherit;font-size:13px;padding:5px 8px;border:1px solid #d0cec8;border-radius:7px;background:#fff;color:#333;cursor:pointer}
+.sw{width:22px;height:22px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;display:inline-block;flex-shrink:0;transition:transform .12s}
+.sw.on{border-color:#222;transform:scale(1.15)}
+#wrap{flex:1;overflow:auto;position:relative}
+#canvas{position:absolute;top:0;left:0;width:3000px;height:2000px}
+#svgL{position:absolute;top:0;left:0;width:3000px;height:2000px;pointer-events:none;overflow:visible}
+
+/* ── 노드 ── */
+.nd{position:absolute;border-radius:10px;border:2px solid #534AB7;background:#EEEDFE;min-width:90px;max-width:200px}
+.nd.sel{outline:3px solid #7f77dd;outline-offset:2px}
+.nd-inner{padding:8px 14px;display:flex;align-items:center;justify-content:center;min-height:36px}
+
+/* textarea 기반 텍스트 — 가장 확실한 방법 */
+.nd-ta{
+  font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:13px;font-weight:500;line-height:1.4;
+  text-align:center;color:#3C3489;
+  border:none;outline:none;background:transparent;
+  resize:none;overflow:hidden;
+  width:100%;min-width:60px;
+  cursor:default;
+  pointer-events:none; /* 기본적으로 클릭 막음 */
+}
+.nd.editing .nd-ta{
+  cursor:text;
+  pointer-events:all;
+  background:rgba(255,255,255,0.5);
+  border-radius:4px;
+}
+
+/* 드래그 오버레이 */
+.nd-ov{position:absolute;inset:0;cursor:grab;border-radius:10px;z-index:5}
+.nd-ov:active{cursor:grabbing}
+.nd.editing .nd-ov{display:none}
+
+/* 연결점 */
+.dot{position:absolute;width:13px;height:13px;border-radius:50%;background:#534AB7;border:2.5px solid #fff;cursor:crosshair;opacity:0;z-index:10;transition:opacity .15s}
+.nd:hover .dot,.nd.editing .dot{opacity:0}
+.nd:hover:not(.editing) .dot{opacity:1}
+.dot.tp{top:-7px;left:50%;transform:translateX(-50%)}
+.dot.bt{bottom:-7px;left:50%;transform:translateX(-50%)}
+.dot.lt{left:-7px;top:50%;transform:translateY(-50%)}
+.dot.rt{right:-7px;top:50%;transform:translateY(-50%)}
+
+/* X 버튼 */
+.nd-x{position:absolute;top:-9px;right:-9px;width:19px;height:19px;border-radius:50%;background:#e24b4a;border:2px solid #fff;color:#fff;font-size:12px;text-align:center;line-height:15px;cursor:pointer;display:none;z-index:20;font-family:Arial,sans-serif}
+.nd.sel .nd-x{display:block}
+
+/* 엣지 라벨 */
+.elbl{position:absolute;transform:translate(-50%,-50%);background:#fff;border:1.5px solid #AFA9EC;border-radius:7px;padding:3px 8px;font-size:12px;z-index:6;white-space:nowrap}
+.elbl input{border:none;outline:none;font-family:inherit;font-size:12px;background:transparent;color:#3C3489;text-align:center;width:70px}
+.elbl input::placeholder{color:#c0bce8}
+.elbl.dash{border-color:#D85A30}
+.elbl.dash input{color:#993C1D}
+
+#guide{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.9);border:1px solid #ddd;border-radius:8px;padding:6px 16px;font-size:12px;color:#888;pointer-events:none;white-space:nowrap}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <span class="tlabel">노드</span>
+  <button class="prim" id="btnAdd">+ 개념 추가</button>
+  <div class="sep"></div>
+  <span class="tlabel">색상</span>
+  <span class="sw on" data-c="purple" style="background:#EEEDFE;border-color:#534AB7" title="보라"></span>
+  <span class="sw" data-c="teal"  style="background:#E1F5EE;border-color:#0F6E56" title="초록"></span>
+  <span class="sw" data-c="amber" style="background:#FAEEDA;border-color:#854F0B" title="노랑"></span>
+  <span class="sw" data-c="coral" style="background:#FAECE7;border-color:#993C1D" title="빨강"></span>
+  <span class="sw" data-c="gray"  style="background:#F1EFE8;border-color:#888780" title="회색"></span>
+  <div class="sep"></div>
+  <span class="tlabel">연결선</span>
+  <select id="selLine"><option value="solid">실선</option><option value="dashed">점선 (교차연결)</option></select>
+  <div class="sep"></div>
+  <button class="red" id="btnDel">선택 삭제</button>
+  <button class="red" id="btnReset">전체 초기화</button>
+  <div class="sep"></div>
+  <button class="prim" id="btnSave">저장</button>
+  <button id="btnLoad">불러오기</button>
+  <input type="file" id="fileIn" accept=".json" style="display:none">
+</div>
+
+<div id="wrap">
+  <div id="canvas">
+    <svg id="svgL" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="mkp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#534AB7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="mkt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#0F6E56" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="mka" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#854F0B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="mkc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#993C1D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="mkg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="mko" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#D85A30" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+      </defs>
+      <g id="eg"></g>
+      <line id="tmpL" x1="0" y1="0" x2="0" y2="0" stroke="#999" stroke-width="1.5" stroke-dasharray="5 3" display="none"/>
+    </svg>
+  </div>
+  <div id="guide">노드 더블클릭 → 텍스트 편집 (Enter 완료)　|　테두리 점 드래그 → 연결선　|　연결선 라벨 더블클릭 → 삭제</div>
+</div>
+
+<script>
+const CV=document.getElementById('canvas');
+const EG=document.getElementById('eg');
+const TL=document.getElementById('tmpL');
+const WR=document.getElementById('wrap');
+
+const PAL={
+  purple:{bg:'#EEEDFE',st:'#534AB7',tx:'#3C3489',mk:'mkp'},
+  teal:  {bg:'#E1F5EE',st:'#0F6E56',tx:'#085041',mk:'mkt'},
+  amber: {bg:'#FAEEDA',st:'#854F0B',tx:'#633806',mk:'mka'},
+  coral: {bg:'#FAECE7',st:'#993C1D',tx:'#712B13',mk:'mkc'},
+  gray:  {bg:'#F1EFE8',st:'#888780',tx:'#444441',mk:'mkg'},
+};
+
+let NS={},ES=[],NC=0,EC=0;
+let selId=null,curC='purple',curL='solid';
+let dragSt=null,connSt=null;
+
+function cvXY(e){const r=CV.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+function refreshSz(id){const n=NS[id];if(!n)return;n.w=n.el.offsetWidth;n.h=n.el.offsetHeight;}
+function nCtr(id){const n=NS[id];return{x:n.x+n.w/2,y:n.y+n.h/2};}
+
+function autoResize(ta){
+  ta.style.height='auto';
+  ta.style.height=ta.scrollHeight+'px';
+  ta.style.width='auto';
+  // 최대 너비 내에서 내용에 맞게
+  const parent=ta.closest('.nd');
+  if(parent){parent.style.width='';ta.style.width='';}
+}
+
+// ══ 노드 ══════════════════════════════════════════════════════
+function addNode(x,y,txt,color){
+  const id='n'+(++NC);
+  const p=PAL[color]||PAL.purple;
+
+  const el=document.createElement('div');
+  el.className='nd'; el.id=id;
+  el.style.left=x+'px'; el.style.top=y+'px';
+  el.style.background=p.bg; el.style.borderColor=p.st;
+
+  // 연결점
+  ['tp','bt','lt','rt'].forEach(cls=>{
+    const d=document.createElement('div');
+    d.className='dot '+cls; d.style.background=p.st;
+    d.addEventListener('mousedown',e=>{
+      e.preventDefault();e.stopPropagation();
+      connSt={fromId:id};
+      const c=nCtr(id);
+      TL.setAttribute('x1',c.x);TL.setAttribute('y1',c.y);
+      TL.setAttribute('x2',c.x);TL.setAttribute('y2',c.y);
+      TL.setAttribute('display','');
+    });
+    el.appendChild(d);
+  });
+
+  // 내부 래퍼
+  const inner=document.createElement('div');
+  inner.className='nd-inner';
+
+  // textarea — 텍스트 편집의 핵심
+  const ta=document.createElement('textarea');
+  ta.className='nd-ta';
+  ta.value=txt;
+  ta.rows=1;
+  ta.style.color=p.tx;
+  ta.spellcheck=false;
+  ta.readOnly=true; // 기본: 읽기 전용
+  inner.appendChild(ta);
+  el.appendChild(inner);
+
+  // X 버튼
+  const xb=document.createElement('div');
+  xb.className='nd-x'; xb.textContent='×';
+  xb.addEventListener('click',e=>{e.stopPropagation();removeNode(id);});
+  el.appendChild(xb);
+
+  // 드래그 오버레이
+  const ov=document.createElement('div');
+  ov.className='nd-ov';
+  el.appendChild(ov);
+
+  // ── 드래그 ──
+  ov.addEventListener('mousedown',e=>{
+    e.preventDefault();
+    selNode(id);
+    const {x:mx,y:my}=cvXY(e);
+    dragSt={id,ox:mx-NS[id].x,oy:my-NS[id].y};
+  });
+
+  // ── 더블클릭 → 편집 시작 ──
+  function enterEdit(){
+    selNode(id);
+    el.classList.add('editing');
+    ta.readOnly=false;
+    ta.focus();
+    ta.select();
+  }
+
+  ov.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();enterEdit();});
+  el.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();enterEdit();});
+  ta.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();enterEdit();});
+
+  // ── 편집 완료 ──
+  ta.addEventListener('blur',()=>{
+    ta.readOnly=true;
+    el.classList.remove('editing');
+    if(!ta.value.trim()) ta.value='개념어';
+    autoResize(ta);
+    refreshSz(id); redrawEdges();
+  });
+  ta.addEventListener('keydown',e=>{
+    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ta.blur();}
+    if(e.key==='Escape'){ta.blur();}
+    e.stopPropagation();
+  });
+  ta.addEventListener('input',()=>{autoResize(ta);refreshSz(id);redrawEdges();});
+  ta.addEventListener('mousedown',e=>{if(!ta.readOnly)e.stopPropagation();});
+
+  // ── 단일 클릭 선택 ──
+  ov.addEventListener('click',e=>{e.stopPropagation();selNode(id);});
+
+  CV.appendChild(el);
+  NS[id]={el,x,y,w:0,h:0,color};
+  setTimeout(()=>{autoResize(ta);refreshSz(id);},10);
+  return id;
+}
+
+function selNode(id){
+  if(selId) NS[selId]?.el.classList.remove('sel');
+  selId=id;
+  if(id) NS[id]?.el.classList.add('sel');
+}
+
+function removeNode(id){
+  NS[id]?.el.remove(); delete NS[id];
+  ES=ES.filter(e=>{if(e.from===id||e.to===id){e.path?.remove();e.lw?.remove();return false;}return true;});
+  if(selId===id) selId=null;
+}
+
+// ══ 엣지 ══════════════════════════════════════════════════════
+function addEdge(fromId,toId,style){
+  const id='e'+(++EC);
+  const isDash=style==='dashed';
+  const p=PAL[NS[fromId]?.color]||PAL.purple;
+  const stroke=isDash?'#D85A30':p.st;
+  const mk=isDash?'mko':p.mk;
+
+  const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('fill','none');
+  path.setAttribute('stroke',stroke);
+  path.setAttribute('stroke-width','2');
+  path.setAttribute('marker-end',`url(#${mk})`);
+  if(isDash) path.setAttribute('stroke-dasharray','6 3');
+  EG.appendChild(path);
+
+  const lw=document.createElement('div');
+  lw.className='elbl'+(isDash?' dash':'');
+  const inp=document.createElement('input');
+  inp.type='text'; inp.placeholder='연결어'; inp.maxLength=30;
+  lw.appendChild(inp); CV.appendChild(lw);
+
+  inp.addEventListener('mousedown',e=>e.stopPropagation());
+  inp.addEventListener('input',()=>{inp.style.width='4px';inp.style.width=Math.max(70,inp.scrollWidth+8)+'px';});
+  lw.addEventListener('dblclick',e=>{e.stopPropagation();if(confirm('이 연결선을 삭제할까요?'))removeEdge(id);});
+
+  const edge={id,from:fromId,to:toId,style,path,lw,inp};
+  ES.push(edge); drawEdge(edge); return edge;
+}
+
+function removeEdge(id){
+  const i=ES.findIndex(e=>e.id===id);if(i===-1)return;
+  ES[i].path?.remove();ES[i].lw?.remove();ES.splice(i,1);
+}
+
+function drawEdge(edge){
+  const fn=NS[edge.from],tn=NS[edge.to]; if(!fn||!tn)return;
+  refreshSz(edge.from);refreshSz(edge.to);
+  const fx=fn.x+fn.w/2,fy=fn.y+fn.h/2;
+  const tx=tn.x+tn.w/2,ty=tn.y+tn.h/2;
+  const ang=Math.atan2(ty-fy,tx-fx);
+  const cos=Math.cos(ang),sin=Math.sin(ang);
+  const hw=tn.w/2+10,hh=tn.h/2+10;
+  const t=Math.min(hw/Math.max(Math.abs(cos),0.01),hh/Math.max(Math.abs(sin),0.01));
+  const ex=tx-cos*t,ey=ty-sin*t;
+  const mx=(fx+ex)/2,my=(fy+ey)/2;
+  const dx=ex-fx,dy=ey-fy,len=Math.hypot(dx,dy)||1;
+  const bend=Math.min(len*0.2,60);
+  const nx=-dy/len,ny=dx/len;
+  edge.path.setAttribute('d',`M ${fx} ${fy} Q ${mx+nx*bend} ${my+ny*bend} ${ex} ${ey}`);
+  edge.lw.style.left=mx+'px'; edge.lw.style.top=my+'px';
+}
+
+function redrawEdges(){ES.forEach(e=>drawEdge(e));}
+
+// ══ 전역 이벤트 ═══════════════════════════════════════════════
+document.addEventListener('mousemove',e=>{
+  if(dragSt){
+    const{x,y}=cvXY(e);const n=NS[dragSt.id];if(!n)return;
+    n.x=Math.max(0,x-dragSt.ox);n.y=Math.max(0,y-dragSt.oy);
+    n.el.style.left=n.x+'px';n.el.style.top=n.y+'px';redrawEdges();
+  }
+  if(connSt){const{x,y}=cvXY(e);TL.setAttribute('x2',x);TL.setAttribute('y2',y);}
+});
+
+document.addEventListener('mouseup',e=>{
+  dragSt=null;
+  if(connSt){
+    const tgt=e.target.closest('.nd');
+    if(tgt&&tgt.id!==connSt.fromId) addEdge(connSt.fromId,tgt.id,curL);
+    connSt=null; TL.setAttribute('display','none');
+  }
+});
+
+CV.addEventListener('click',e=>{if(e.target===CV)selNode(null);});
+
+// ══ 툴바 ══════════════════════════════════════════════════════
+document.querySelectorAll('.sw').forEach(sw=>{
+  sw.addEventListener('click',()=>{
+    document.querySelectorAll('.sw').forEach(s=>s.classList.remove('on'));
+    sw.classList.add('on'); curC=sw.dataset.c;
+    if(selId&&NS[selId]){
+      const p=PAL[curC],n=NS[selId];
+      n.color=curC; n.el.style.background=p.bg; n.el.style.borderColor=p.st;
+      n.el.querySelector('.nd-ta').style.color=p.tx;
+      n.el.querySelectorAll('.dot').forEach(d=>d.style.background=p.st);
+    }
+  });
+});
+
+document.getElementById('selLine').addEventListener('change',e=>curL=e.target.value);
+
+document.getElementById('btnAdd').addEventListener('click',()=>{
+  const x=WR.scrollLeft+80+Math.random()*260;
+  const y=WR.scrollTop+60+Math.random()*140;
+  const id=addNode(Math.round(x),Math.round(y),'개념어',curC);
+  selNode(id);
+  setTimeout(()=>{
+    const n=NS[id]; if(!n) return;
+    const ta=n.el.querySelector('.nd-ta');
+    n.el.classList.add('editing');
+    ta.readOnly=false;
+    ta.focus(); ta.select();
+  },80);
+});
+
+document.getElementById('btnDel').addEventListener('click',()=>{if(selId)removeNode(selId);});
+document.getElementById('btnReset').addEventListener('click',()=>{
+  if(!confirm('모든 내용을 지울까요?'))return;
+  Object.keys(NS).forEach(id=>NS[id].el.remove());NS={};NC=0;
+  ES.forEach(e=>{e.path?.remove();e.lw?.remove();});ES=[];EC=0;selId=null;
+});
+
+document.getElementById('btnSave').addEventListener('click',()=>{
+  const data={
+    nodes:Object.entries(NS).map(([id,n])=>({id,x:n.x,y:n.y,color:n.color,text:n.el.querySelector('.nd-ta').value})),
+    edges:ES.map(e=>({from:e.from,to:e.to,style:e.style,label:e.inp.value}))
+  };
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
+  a.download='개념도.json'; a.click();
+});
+
+document.getElementById('btnLoad').addEventListener('click',()=>document.getElementById('fileIn').click());
+document.getElementById('fileIn').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      Object.keys(NS).forEach(id=>NS[id].el.remove());NS={};NC=0;
+      ES.forEach(e=>{e.path?.remove();e.lw?.remove();});ES=[];EC=0;
+      const map={};
+      data.nodes.forEach(n=>{const nid=addNode(n.x,n.y,n.text||'개념어',n.color||'purple');map[n.id]=nid;});
+      setTimeout(()=>{
+        (data.edges||[]).forEach(e=>{const f2=map[e.from],t2=map[e.to];if(f2&&t2){const edge=addEdge(f2,t2,e.style||'solid');edge.inp.value=e.label||'';}});
+        redrawEdges();
+      },150);
+    }catch{alert('파일을 읽을 수 없습니다.');}
+  };
+  rd.readAsText(f);e.target.value='';
+});
+
+// ══ 초기 샘플 ═════════════════════════════════════════════════
+addNode(120,100,'최상위 개념','purple');
+addNode(380,100,'개념 B','purple');
+addNode(640,100,'개념 C','teal');
+</script>
+</body>
+</html>
