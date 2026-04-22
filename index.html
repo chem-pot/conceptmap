@@ -2,376 +2,497 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>개념도 작성 도구</title>
+<title>개념도 작성 도구 (PC)</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;background:#f0efe9;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-#toolbar{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#fff;border-bottom:1.5px solid #e0ddd5;flex-shrink:0;flex-wrap:wrap}
-.sep{width:1px;height:24px;background:#e0ddd5;margin:0 4px}
-.tlabel{font-size:11px;color:#999;white-space:nowrap}
-button{font-family:inherit;font-size:13px;padding:5px 12px;border:1px solid #d0cec8;border-radius:7px;background:#fff;cursor:pointer;color:#333}
+
+/* ── 툴바 ── */
+#tb{display:flex;align-items:center;gap:5px;padding:7px 12px;background:#fff;border-bottom:1.5px solid #ddd;flex-shrink:0;flex-wrap:wrap}
+.sep{width:1px;height:22px;background:#e0e0e0;margin:0 2px}
+.lbl{font-size:11px;color:#999;white-space:nowrap}
+button{font-family:inherit;font-size:13px;padding:5px 11px;border:1px solid #ccc;border-radius:7px;background:#fff;cursor:pointer;color:#333}
 button:hover{background:#f0eefc;border-color:#7f77dd}
 button.prim{background:#534AB7;color:#fff;border-color:#534AB7}
 button.prim:hover{background:#3C3489}
 button.red{border-color:#f09595;color:#a32d2d}
 button.red:hover{background:#fcebeb}
-select{font-family:inherit;font-size:13px;padding:5px 8px;border:1px solid #d0cec8;border-radius:7px;background:#fff;color:#333;cursor:pointer}
-.sw{width:22px;height:22px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;display:inline-block;flex-shrink:0;transition:transform .12s}
+button.on{background:#EEEDFE;border-color:#534AB7;color:#3C3489;font-weight:500}
+select{font-family:inherit;font-size:13px;padding:5px 7px;border:1px solid #ccc;border-radius:7px;background:#fff;cursor:pointer}
+.sw{width:23px;height:23px;border-radius:50%;border:2.5px solid transparent;cursor:pointer;flex-shrink:0;display:inline-block;vertical-align:middle;transition:transform .1s}
+.sw:hover{transform:scale(1.1)}
 .sw.on{border-color:#222;transform:scale(1.15)}
-#wrap{flex:1;overflow:auto;position:relative}
-#canvas{position:absolute;top:0;left:0;width:3000px;height:2000px}
-#svgL{position:absolute;top:0;left:0;width:3000px;height:2000px;pointer-events:none;overflow:visible}
+
+/* ── 기호 키보드 ── */
+#symbar{display:none;align-items:center;gap:3px;padding:5px 12px;background:#f7f6f0;border-bottom:1px solid #ddd;flex-shrink:0;overflow-x:auto;white-space:nowrap}
+#symbar.show{display:flex}
+.sg{display:inline-flex;align-items:center;gap:3px;padding-right:8px;margin-right:4px;border-right:1px solid #ddd;flex-shrink:0}
+.sg:last-child{border-right:none}
+.sgl{font-size:10px;color:#aaa;margin-right:2px;flex-shrink:0}
+.sk{font-size:13px;padding:3px 7px;border:1px solid #ccc;border-radius:5px;background:#fff;cursor:pointer;font-family:'Apple SD Gothic Neo','Malgun Gothic',serif;color:#333;white-space:nowrap;line-height:1.4}
+.sk:hover{background:#EEEDFE;border-color:#534AB7;color:#3C3489}
+
+/* ── 캔버스 ── */
+#wrap{flex:1;overflow:auto;position:relative;background:#f0efe9}
+#cv{position:absolute;top:0;left:0;width:3000px;height:2000px}
+#svg{position:absolute;top:0;left:0;width:3000px;height:2000px;pointer-events:none}
 
 /* ── 노드 ── */
-.nd{position:absolute;border-radius:10px;border:2px solid #534AB7;background:#EEEDFE;min-width:90px;max-width:200px}
-.nd.sel{outline:3px solid #7f77dd;outline-offset:2px}
-.nd-inner{padding:8px 14px;display:flex;align-items:center;justify-content:center;min-height:36px}
+.node{
+  position:absolute;
+  border-radius:10px;
+  border:2px solid #534AB7;
+  background:#EEEDFE;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:80px;
+  user-select:none;
+  cursor:grab;
+}
+.node:active{cursor:grabbing}
+.node.sel{outline:3px solid #7f77dd;outline-offset:2px}
+.node.dragging{opacity:.85;cursor:grabbing}
 
-/* textarea 기반 텍스트 — 가장 확실한 방법 */
-.nd-ta{
+/* 노드 텍스트 — input 방식 */
+.node input.nt{
   font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
-  font-size:13px;font-weight:500;line-height:1.4;
-  text-align:center;color:#3C3489;
-  border:none;outline:none;background:transparent;
-  resize:none;overflow:hidden;
-  width:100%;min-width:60px;
-  cursor:default;
-  pointer-events:none; /* 기본적으로 클릭 막음 */
+  font-size:13px;font-weight:500;
+  color:#3C3489;background:transparent;
+  border:none;outline:none;
+  text-align:center;
+  padding:9px 12px;
+  min-width:60px;max-width:190px;width:80px;
+  cursor:inherit;
+  pointer-events:none; /* 기본: 드래그 핸들 역할 */
 }
-.nd.editing .nd-ta{
+.node.editing input.nt{
+  pointer-events:auto;
   cursor:text;
-  pointer-events:all;
-  background:rgba(255,255,255,0.5);
-  border-radius:4px;
+  background:rgba(255,255,255,.55);
+  border-radius:5px;
 }
-
-/* 드래그 오버레이 */
-.nd-ov{position:absolute;inset:0;cursor:grab;border-radius:10px;z-index:5}
-.nd-ov:active{cursor:grabbing}
-.nd.editing .nd-ov{display:none}
 
 /* 연결점 */
-.dot{position:absolute;width:13px;height:13px;border-radius:50%;background:#534AB7;border:2.5px solid #fff;cursor:crosshair;opacity:0;z-index:10;transition:opacity .15s}
-.nd:hover .dot,.nd.editing .dot{opacity:0}
-.nd:hover:not(.editing) .dot{opacity:1}
-.dot.tp{top:-7px;left:50%;transform:translateX(-50%)}
-.dot.bt{bottom:-7px;left:50%;transform:translateX(-50%)}
-.dot.lt{left:-7px;top:50%;transform:translateY(-50%)}
-.dot.rt{right:-7px;top:50%;transform:translateY(-50%)}
+.dot{position:absolute;width:12px;height:12px;border-radius:50%;background:#534AB7;border:2px solid #fff;cursor:crosshair;opacity:0;transition:opacity .15s;z-index:5}
+.node:hover .dot,.node.sel .dot{opacity:1}
+.dt{top:-6px;left:50%;transform:translateX(-50%)}
+.db{bottom:-6px;left:50%;transform:translateX(-50%)}
+.dl{left:-6px;top:50%;transform:translateY(-50%)}
+.dr{right:-6px;top:50%;transform:translateY(-50%)}
 
-/* X 버튼 */
-.nd-x{position:absolute;top:-9px;right:-9px;width:19px;height:19px;border-radius:50%;background:#e24b4a;border:2px solid #fff;color:#fff;font-size:12px;text-align:center;line-height:15px;cursor:pointer;display:none;z-index:20;font-family:Arial,sans-serif}
-.nd.sel .nd-x{display:block}
+/* 삭제 버튼 */
+.xb{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;background:#e24b4a;border:2px solid #fff;color:#fff;font-size:13px;line-height:16px;cursor:pointer;display:none;text-align:center;z-index:10}
+.node.sel .xb{display:block}
+.xb:hover{background:#c62828}
 
 /* 엣지 라벨 */
-.elbl{position:absolute;transform:translate(-50%,-50%);background:#fff;border:1.5px solid #AFA9EC;border-radius:7px;padding:3px 8px;font-size:12px;z-index:6;white-space:nowrap}
-.elbl input{border:none;outline:none;font-family:inherit;font-size:12px;background:transparent;color:#3C3489;text-align:center;width:70px}
-.elbl input::placeholder{color:#c0bce8}
-.elbl.dash{border-color:#D85A30}
-.elbl.dash input{color:#993C1D}
+.elb{position:absolute;transform:translate(-50%,-50%);z-index:5;display:flex;align-items:center;gap:3px}
+.elb input{
+  font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  font-size:12px;color:#3C3489;
+  background:#fff;border:1.5px solid #AFA9EC;
+  border-radius:6px;padding:2px 7px;
+  text-align:center;width:84px;outline:none;cursor:text;
+}
+.elb input:focus{border-color:#534AB7;background:#f8f7ff}
+.elb.dash input{border-color:#D85A30;color:#993C1D}
+.elb.dash input:focus{border-color:#D85A30}
+.elb .edel{width:18px;height:18px;border-radius:50%;background:#e24b4a;border:1.5px solid #fff;color:#fff;font-size:11px;line-height:15px;cursor:pointer;text-align:center;flex-shrink:0;opacity:0;transition:opacity .15s}
+.elb:hover .edel{opacity:1}
 
-#guide{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.9);border:1px solid #ddd;border-radius:8px;padding:6px 16px;font-size:12px;color:#888;pointer-events:none;white-space:nowrap}
+/* 안내 */
+#guide{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.9);border:1px solid #ddd;border-radius:8px;padding:5px 14px;font-size:11px;color:#aaa;pointer-events:none;white-space:nowrap}
 </style>
 </head>
 <body>
 
-<div id="toolbar">
-  <span class="tlabel">노드</span>
+<div id="tb">
+  <span class="lbl">노드</span>
   <button class="prim" id="btnAdd">+ 개념 추가</button>
   <div class="sep"></div>
-  <span class="tlabel">색상</span>
+
+  <span class="lbl">색상</span>
   <span class="sw on" data-c="purple" style="background:#EEEDFE;border-color:#534AB7" title="보라"></span>
-  <span class="sw" data-c="teal"  style="background:#E1F5EE;border-color:#0F6E56" title="초록"></span>
-  <span class="sw" data-c="amber" style="background:#FAEEDA;border-color:#854F0B" title="노랑"></span>
-  <span class="sw" data-c="coral" style="background:#FAECE7;border-color:#993C1D" title="빨강"></span>
-  <span class="sw" data-c="gray"  style="background:#F1EFE8;border-color:#888780" title="회색"></span>
+  <span class="sw"    data-c="teal"   style="background:#E1F5EE;border-color:#0F6E56" title="초록"></span>
+  <span class="sw"    data-c="amber"  style="background:#FAEEDA;border-color:#854F0B" title="노랑"></span>
+  <span class="sw"    data-c="coral"  style="background:#FAECE7;border-color:#993C1D" title="빨강"></span>
+  <span class="sw"    data-c="gray"   style="background:#F1EFE8;border-color:#888780" title="회색"></span>
   <div class="sep"></div>
-  <span class="tlabel">연결선</span>
+
+  <span class="lbl">연결선</span>
   <select id="selLine"><option value="solid">실선</option><option value="dashed">점선 (교차연결)</option></select>
   <div class="sep"></div>
+
   <button class="red" id="btnDel">선택 삭제</button>
   <button class="red" id="btnReset">전체 초기화</button>
   <div class="sep"></div>
-  <button class="prim" id="btnSave">저장</button>
+
+  <button id="btnSym">기호 ⌨</button>
+  <div class="sep"></div>
+
+  <button class="prim" id="btnSave">저장 (JSON)</button>
   <button id="btnLoad">불러오기</button>
   <input type="file" id="fileIn" accept=".json" style="display:none">
 </div>
 
+<!-- 기호 키보드 -->
+<div id="symbar">
+  <div class="sg">
+    <span class="sgl">아래 첨자</span>
+    <button class="sk" data-s="₀">₀</button><button class="sk" data-s="₁">₁</button><button class="sk" data-s="₂">₂</button><button class="sk" data-s="₃">₃</button><button class="sk" data-s="₄">₄</button><button class="sk" data-s="₅">₅</button><button class="sk" data-s="₆">₆</button><button class="sk" data-s="₇">₇</button><button class="sk" data-s="₈">₈</button><button class="sk" data-s="₉">₉</button>
+  </div>
+  <div class="sg">
+    <span class="sgl">위 첨자</span>
+    <button class="sk" data-s="⁰">⁰</button><button class="sk" data-s="¹">¹</button><button class="sk" data-s="²">²</button><button class="sk" data-s="³">³</button><button class="sk" data-s="⁴">⁴</button><button class="sk" data-s="⁵">⁵</button><button class="sk" data-s="⁶">⁶</button><button class="sk" data-s="⁺">⁺</button><button class="sk" data-s="⁻">⁻</button>
+  </div>
+  <div class="sg">
+    <span class="sgl">화학</span>
+    <button class="sk" data-s="→">→</button><button class="sk" data-s="⇌">⇌</button><button class="sk" data-s="δ+">δ+</button><button class="sk" data-s="δ−">δ−</button><button class="sk" data-s="°C">°C</button><button class="sk" data-s="∠">∠</button><button class="sk" data-s="≒">≒</button><button class="sk" data-s="∝">∝</button>
+  </div>
+  <div class="sg">
+    <span class="sgl">화학식</span>
+    <button class="sk" data-s="H₂O">H₂O</button><button class="sk" data-s="CO₂">CO₂</button><button class="sk" data-s="NH₃">NH₃</button><button class="sk" data-s="CH₄">CH₄</button><button class="sk" data-s="O₂">O₂</button><button class="sk" data-s="N₂">N₂</button><button class="sk" data-s="HCl">HCl</button><button class="sk" data-s="NaCl">NaCl</button><button class="sk" data-s="Na⁺">Na⁺</button><button class="sk" data-s="Cl⁻">Cl⁻</button><button class="sk" data-s="OH⁻">OH⁻</button>
+  </div>
+  <div class="sg">
+    <span class="sgl">수식</span>
+    <button class="sk" data-s="6.02×10²³">6.02×10²³</button><button class="sk" data-s="×10">×10</button><button class="sk" data-s="g/mol">g/mol</button><button class="sk" data-s="mol/L">mol/L</button><button class="sk" data-s="22.4L">22.4L</button>
+  </div>
+  <div class="sg">
+    <span class="sgl">기타</span>
+    <button class="sk" data-s="↑">↑</button><button class="sk" data-s="↓">↓</button><button class="sk" data-s="↔">↔</button><button class="sk" data-s="∴">∴</button><button class="sk" data-s="∵">∵</button><button class="sk" data-s="±">±</button>
+  </div>
+</div>
+
 <div id="wrap">
-  <div id="canvas">
-    <svg id="svgL" xmlns="http://www.w3.org/2000/svg">
+  <div id="cv">
+    <svg id="svg" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <marker id="mkp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#534AB7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
-        <marker id="mkt" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#0F6E56" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
-        <marker id="mka" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#854F0B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
-        <marker id="mkc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#993C1D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
-        <marker id="mkg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
-        <marker id="mko" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L9 5L2 9" fill="none" stroke="#D85A30" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="mp" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#534AB7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="mt" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#0F6E56" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="ma" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#854F0B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="mc" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#993C1D" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="mg" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#888780" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
+        <marker id="mo" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#D85A30" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker>
       </defs>
       <g id="eg"></g>
-      <line id="tmpL" x1="0" y1="0" x2="0" y2="0" stroke="#999" stroke-width="1.5" stroke-dasharray="5 3" display="none"/>
+      <path id="tp" fill="none" stroke="#aaa" stroke-width="1.5" stroke-dasharray="5 3" d="" display="none"/>
     </svg>
   </div>
-  <div id="guide">노드 더블클릭 → 텍스트 편집 (Enter 완료)　|　테두리 점 드래그 → 연결선　|　연결선 라벨 더블클릭 → 삭제</div>
+  <div id="guide">클릭: 선택 &nbsp;·&nbsp; 선택 후 재클릭: 텍스트 편집 (Enter로 완료) &nbsp;·&nbsp; 테두리 점 드래그: 연결선 &nbsp;·&nbsp; 연결어 라벨 위 ×: 삭제</div>
 </div>
 
 <script>
-const CV=document.getElementById('canvas');
-const EG=document.getElementById('eg');
-const TL=document.getElementById('tmpL');
+const CV=document.getElementById('cv');
 const WR=document.getElementById('wrap');
+const EG=document.getElementById('eg');
+const TP=document.getElementById('tp');
+const symBar=document.getElementById('symbar');
 
 const PAL={
-  purple:{bg:'#EEEDFE',st:'#534AB7',tx:'#3C3489',mk:'mkp'},
-  teal:  {bg:'#E1F5EE',st:'#0F6E56',tx:'#085041',mk:'mkt'},
-  amber: {bg:'#FAEEDA',st:'#854F0B',tx:'#633806',mk:'mka'},
-  coral: {bg:'#FAECE7',st:'#993C1D',tx:'#712B13',mk:'mkc'},
-  gray:  {bg:'#F1EFE8',st:'#888780',tx:'#444441',mk:'mkg'},
+  purple:{bg:'#EEEDFE',st:'#534AB7',tx:'#3C3489',mk:'mp'},
+  teal:  {bg:'#E1F5EE',st:'#0F6E56',tx:'#085041',mk:'mt'},
+  amber: {bg:'#FAEEDA',st:'#854F0B',tx:'#633806',mk:'ma'},
+  coral: {bg:'#FAECE7',st:'#993C1D',tx:'#712B13',mk:'mc'},
+  gray:  {bg:'#F1EFE8',st:'#888780',tx:'#444441',mk:'mg'},
 };
 
-let NS={},ES=[],NC=0,EC=0;
-let selId=null,curC='purple',curL='solid';
-let dragSt=null,connSt=null;
+let nodes={}, edges=[], nc=0, ec=0;
+let selId=null, curCol='purple', curLine='solid';
+let drag=null;   // {id, ox, oy, moved}
+let conn=null;   // {fromId}
+let activeInp=null; // 현재 포커스된 input (기호 삽입 대상)
 
-function cvXY(e){const r=CV.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
-function refreshSz(id){const n=NS[id];if(!n)return;n.w=n.el.offsetWidth;n.h=n.el.offsetHeight;}
-function nCtr(id){const n=NS[id];return{x:n.x+n.w/2,y:n.y+n.h/2};}
+// ── 좌표 ──────────────────────────────────────────────────────
+function cXY(e){const r=CV.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+function nW(id){return nodes[id].el.offsetWidth;}
+function nH(id){return nodes[id].el.offsetHeight;}
+function cX(id){return nodes[id].x+nW(id)/2;}
+function cY(id){return nodes[id].y+nH(id)/2;}
 
-function autoResize(ta){
-  ta.style.height='auto';
-  ta.style.height=ta.scrollHeight+'px';
-  ta.style.width='auto';
-  // 최대 너비 내에서 내용에 맞게
-  const parent=ta.closest('.nd');
-  if(parent){parent.style.width='';ta.style.width='';}
+// input 너비 자동 조절
+function aw(inp){
+  const t=document.createElement('span');
+  t.style.cssText='position:absolute;visibility:hidden;pointer-events:none;font:500 13px "Apple SD Gothic Neo","Malgun Gothic",sans-serif;white-space:pre';
+  t.textContent=inp.value||inp.placeholder||'개념어';
+  document.body.appendChild(t);
+  inp.style.width=Math.max(60,Math.min(190,t.offsetWidth+26))+'px';
+  document.body.removeChild(t);
 }
 
-// ══ 노드 ══════════════════════════════════════════════════════
-function addNode(x,y,txt,color){
-  const id='n'+(++NC);
+// ── 기호 키보드 ───────────────────────────────────────────────
+document.getElementById('btnSym').addEventListener('click',()=>{
+  const on=symBar.classList.toggle('show');
+  document.getElementById('btnSym').classList.toggle('on',on);
+});
+
+document.querySelectorAll('.sk').forEach(btn=>{
+  // mousedown에서 포커스 뺏기지 않도록
+  btn.addEventListener('mousedown',e=>e.preventDefault());
+  btn.addEventListener('click',()=>{
+    if(!activeInp) return;
+    const inp=activeInp;
+    const s=inp.selectionStart??inp.value.length;
+    const en=inp.selectionEnd??inp.value.length;
+    const sym=btn.dataset.s;
+    inp.value=inp.value.slice(0,s)+sym+inp.value.slice(en);
+    inp.selectionStart=inp.selectionEnd=s+sym.length;
+    inp.dispatchEvent(new Event('input'));
+    inp.focus();
+  });
+});
+
+// ── 노드 ──────────────────────────────────────────────────────
+function addNode(x,y,text,color){
+  const id='n'+(++nc);
   const p=PAL[color]||PAL.purple;
 
   const el=document.createElement('div');
-  el.className='nd'; el.id=id;
-  el.style.left=x+'px'; el.style.top=y+'px';
-  el.style.background=p.bg; el.style.borderColor=p.st;
+  el.className='node'; el.id=id;
+  el.style.cssText=`left:${x}px;top:${y}px;background:${p.bg};border-color:${p.st}`;
+
+  const inp=document.createElement('input');
+  inp.className='nt'; inp.type='text';
+  inp.value=text||''; inp.placeholder='개념어';
+  inp.style.color=p.tx;
+  inp.readOnly=true;
+
+  inp.addEventListener('input',()=>{aw(inp);redrawEdges();});
+  inp.addEventListener('focus',()=>activeInp=inp);
+  inp.addEventListener('blur',()=>{
+    inp.readOnly=true;
+    el.classList.remove('editing');
+    aw(inp); redrawEdges();
+    if(activeInp===inp) activeInp=null;
+  });
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key==='Escape') inp.blur();
+    e.stopPropagation();
+  });
+  // 읽기전용일 때 input 클릭 막기 (노드 드래그로 처리)
+  inp.addEventListener('mousedown',e=>{if(inp.readOnly) e.preventDefault();});
 
   // 연결점
-  ['tp','bt','lt','rt'].forEach(cls=>{
+  ['dt','db','dl','dr'].forEach(cls=>{
     const d=document.createElement('div');
-    d.className='dot '+cls; d.style.background=p.st;
+    d.className='dot '+cls;
     d.addEventListener('mousedown',e=>{
-      e.preventDefault();e.stopPropagation();
-      connSt={fromId:id};
-      const c=nCtr(id);
-      TL.setAttribute('x1',c.x);TL.setAttribute('y1',c.y);
-      TL.setAttribute('x2',c.x);TL.setAttribute('y2',c.y);
-      TL.setAttribute('display','');
+      e.stopPropagation(); e.preventDefault();
+      conn={fromId:id};
+      TP.setAttribute('d',`M${cX(id)} ${cY(id)} L${cX(id)} ${cY(id)}`);
+      TP.setAttribute('display','');
     });
     el.appendChild(d);
   });
 
-  // 내부 래퍼
-  const inner=document.createElement('div');
-  inner.className='nd-inner';
-
-  // textarea — 텍스트 편집의 핵심
-  const ta=document.createElement('textarea');
-  ta.className='nd-ta';
-  ta.value=txt;
-  ta.rows=1;
-  ta.style.color=p.tx;
-  ta.spellcheck=false;
-  ta.readOnly=true; // 기본: 읽기 전용
-  inner.appendChild(ta);
-  el.appendChild(inner);
-
-  // X 버튼
+  // 삭제 버튼
   const xb=document.createElement('div');
-  xb.className='nd-x'; xb.textContent='×';
+  xb.className='xb'; xb.textContent='×';
   xb.addEventListener('click',e=>{e.stopPropagation();removeNode(id);});
   el.appendChild(xb);
 
-  // 드래그 오버레이
-  const ov=document.createElement('div');
-  ov.className='nd-ov';
-  el.appendChild(ov);
-
-  // ── 드래그 ──
-  ov.addEventListener('mousedown',e=>{
-    e.preventDefault();
-    selNode(id);
-    const {x:mx,y:my}=cvXY(e);
-    dragSt={id,ox:mx-NS[id].x,oy:my-NS[id].y};
-  });
-
-  // ── 더블클릭 → 편집 시작 ──
-  function enterEdit(){
-    selNode(id);
-    el.classList.add('editing');
-    ta.readOnly=false;
-    ta.focus();
-    ta.select();
-  }
-
-  ov.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();enterEdit();});
-  el.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();enterEdit();});
-  ta.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();enterEdit();});
-
-  // ── 편집 완료 ──
-  ta.addEventListener('blur',()=>{
-    ta.readOnly=true;
-    el.classList.remove('editing');
-    if(!ta.value.trim()) ta.value='개념어';
-    autoResize(ta);
-    refreshSz(id); redrawEdges();
-  });
-  ta.addEventListener('keydown',e=>{
-    if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();ta.blur();}
-    if(e.key==='Escape'){ta.blur();}
-    e.stopPropagation();
-  });
-  ta.addEventListener('input',()=>{autoResize(ta);refreshSz(id);redrawEdges();});
-  ta.addEventListener('mousedown',e=>{if(!ta.readOnly)e.stopPropagation();});
-
-  // ── 단일 클릭 선택 ──
-  ov.addEventListener('click',e=>{e.stopPropagation();selNode(id);});
-
+  el.appendChild(inp);
   CV.appendChild(el);
-  NS[id]={el,x,y,w:0,h:0,color};
-  setTimeout(()=>{autoResize(ta);refreshSz(id);},10);
+
+  // mousedown → 드래그 준비
+  el.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('dot')) return;
+    if(e.target.classList.contains('xb')) return;
+    if(!inp.readOnly) return; // 편집 중 드래그 방지
+    e.preventDefault();
+    selectNode(id);
+    const {x:mx,y:my}=cXY(e);
+    drag={id, ox:mx-nodes[id].x, oy:my-nodes[id].y, moved:false, startT:Date.now()};
+  });
+
+  // click → 선택 or 편집 진입
+  el.addEventListener('click',e=>{
+    if(e.target.classList.contains('dot')) return;
+    if(e.target.classList.contains('xb')) return;
+    if(drag?.moved) return;
+    // 이미 선택된 노드를 다시 클릭 → 편집 모드
+    if(selId===id && inp.readOnly){
+      openEdit(id);
+    } else {
+      selectNode(id);
+    }
+  });
+
+  nodes[id]={el,inp,x,y,color};
+  setTimeout(()=>aw(inp),0);
   return id;
 }
 
-function selNode(id){
-  if(selId) NS[selId]?.el.classList.remove('sel');
+function openEdit(id){
+  if(!nodes[id]) return;
+  const n=nodes[id];
+  n.inp.readOnly=false;
+  n.el.classList.add('editing');
+  n.inp.focus();
+  n.inp.select();
+  activeInp=n.inp;
+}
+
+function selectNode(id){
+  if(selId&&nodes[selId]) nodes[selId].el.classList.remove('sel');
   selId=id;
-  if(id) NS[id]?.el.classList.add('sel');
+  if(id&&nodes[id]){
+    nodes[id].el.classList.add('sel');
+    const c=nodes[id].color;
+    document.querySelectorAll('.sw').forEach(s=>s.classList.toggle('on',s.dataset.c===c));
+  }
 }
 
 function removeNode(id){
-  NS[id]?.el.remove(); delete NS[id];
-  ES=ES.filter(e=>{if(e.from===id||e.to===id){e.path?.remove();e.lw?.remove();return false;}return true;});
+  nodes[id]?.el.remove(); delete nodes[id];
+  edges=edges.filter(e=>{
+    if(e.from===id||e.to===id){e.path?.remove();e.lbEl?.remove();return false;}
+    return true;
+  });
   if(selId===id) selId=null;
 }
 
-// ══ 엣지 ══════════════════════════════════════════════════════
-function addEdge(fromId,toId,style){
-  const id='e'+(++EC);
-  const isDash=style==='dashed';
-  const p=PAL[NS[fromId]?.color]||PAL.purple;
-  const stroke=isDash?'#D85A30':p.st;
-  const mk=isDash?'mko':p.mk;
+// ── 엣지 ──────────────────────────────────────────────────────
+function addEdge(fromId,toId,style,label){
+  const id='e'+(++ec);
+  const dash=style==='dashed';
+  const col=dash?'#D85A30':(PAL[nodes[fromId]?.color]?.st||'#534AB7');
+  const mk=dash?'mo':(PAL[nodes[fromId]?.color]?.mk||'mp');
 
   const path=document.createElementNS('http://www.w3.org/2000/svg','path');
   path.setAttribute('fill','none');
-  path.setAttribute('stroke',stroke);
+  path.setAttribute('stroke',col);
   path.setAttribute('stroke-width','2');
   path.setAttribute('marker-end',`url(#${mk})`);
-  if(isDash) path.setAttribute('stroke-dasharray','6 3');
+  if(dash) path.setAttribute('stroke-dasharray','6 3');
   EG.appendChild(path);
 
-  const lw=document.createElement('div');
-  lw.className='elbl'+(isDash?' dash':'');
-  const inp=document.createElement('input');
-  inp.type='text'; inp.placeholder='연결어'; inp.maxLength=30;
-  lw.appendChild(inp); CV.appendChild(lw);
+  const lbDiv=document.createElement('div');
+  lbDiv.className='elb'+(dash?' dash':'');
 
-  inp.addEventListener('mousedown',e=>e.stopPropagation());
-  inp.addEventListener('input',()=>{inp.style.width='4px';inp.style.width=Math.max(70,inp.scrollWidth+8)+'px';});
-  lw.addEventListener('dblclick',e=>{e.stopPropagation();if(confirm('이 연결선을 삭제할까요?'))removeEdge(id);});
+  const lbInp=document.createElement('input');
+  lbInp.type='text'; lbInp.placeholder='연결어'; lbInp.maxLength=30;
+  lbInp.value=label||'';
+  lbInp.addEventListener('mousedown',e=>e.stopPropagation());
+  lbInp.addEventListener('focus',()=>activeInp=lbInp);
+  lbInp.addEventListener('blur',()=>{if(activeInp===lbInp) activeInp=null;});
 
-  const edge={id,from:fromId,to:toId,style,path,lw,inp};
-  ES.push(edge); drawEdge(edge); return edge;
+  const edel=document.createElement('div');
+  edel.className='edel'; edel.textContent='×'; edel.title='연결선 삭제';
+  edel.addEventListener('mousedown',e=>e.stopPropagation());
+  edel.addEventListener('click',()=>removeEdge(id));
+
+  lbDiv.appendChild(lbInp);
+  lbDiv.appendChild(edel);
+  CV.appendChild(lbDiv);
+
+  const edge={id,from:fromId,to:toId,style,path,lbEl:lbDiv,lbInp};
+  edges.push(edge);
+  drawEdge(edge);
+  return edge;
 }
 
 function removeEdge(id){
-  const i=ES.findIndex(e=>e.id===id);if(i===-1)return;
-  ES[i].path?.remove();ES[i].lw?.remove();ES.splice(i,1);
+  const i=edges.findIndex(e=>e.id===id);
+  if(i<0) return;
+  edges[i].path?.remove(); edges[i].lbEl?.remove(); edges.splice(i,1);
 }
 
-function drawEdge(edge){
-  const fn=NS[edge.from],tn=NS[edge.to]; if(!fn||!tn)return;
-  refreshSz(edge.from);refreshSz(edge.to);
-  const fx=fn.x+fn.w/2,fy=fn.y+fn.h/2;
-  const tx=tn.x+tn.w/2,ty=tn.y+tn.h/2;
+function drawEdge(e){
+  const fn=nodes[e.from],tn=nodes[e.to];
+  if(!fn||!tn) return;
+  const fx=fn.x+nW(e.from)/2, fy=fn.y+nH(e.from)/2;
+  const tx=tn.x+nW(e.to)/2,   ty=tn.y+nH(e.to)/2;
   const ang=Math.atan2(ty-fy,tx-fx);
-  const cos=Math.cos(ang),sin=Math.sin(ang);
-  const hw=tn.w/2+10,hh=tn.h/2+10;
-  const t=Math.min(hw/Math.max(Math.abs(cos),0.01),hh/Math.max(Math.abs(sin),0.01));
-  const ex=tx-cos*t,ey=ty-sin*t;
-  const mx=(fx+ex)/2,my=(fy+ey)/2;
-  const dx=ex-fx,dy=ey-fy,len=Math.hypot(dx,dy)||1;
-  const bend=Math.min(len*0.2,60);
-  const nx=-dy/len,ny=dx/len;
-  edge.path.setAttribute('d',`M ${fx} ${fy} Q ${mx+nx*bend} ${my+ny*bend} ${ex} ${ey}`);
-  edge.lw.style.left=mx+'px'; edge.lw.style.top=my+'px';
+  const ca=Math.cos(ang), sa=Math.sin(ang);
+  const hw=nW(e.to)/2+10, hh=nH(e.to)/2+10;
+  const rr=hw*hh/Math.sqrt(hh*hh*ca*ca+hw*hw*sa*sa);
+  const ex=tx-ca*rr, ey=ty-sa*rr;
+  const mx=(fx+ex)/2, my=(fy+ey)/2;
+  const dist=Math.hypot(ex-fx,ey-fy)||1;
+  const bend=Math.min(dist*.2,40);
+  const nx=-(ey-fy)/dist, ny=(ex-fx)/dist;
+  e.path.setAttribute('d',`M${fx} ${fy} Q${mx+nx*bend} ${my+ny*bend} ${ex} ${ey}`);
+  e.lbEl.style.left=(fx+ex)/2+'px';
+  e.lbEl.style.top=(fy+ey)/2+'px';
 }
 
-function redrawEdges(){ES.forEach(e=>drawEdge(e));}
+function redrawEdges(){edges.forEach(drawEdge);}
 
-// ══ 전역 이벤트 ═══════════════════════════════════════════════
+// ── 전역 마우스 ───────────────────────────────────────────────
 document.addEventListener('mousemove',e=>{
-  if(dragSt){
-    const{x,y}=cvXY(e);const n=NS[dragSt.id];if(!n)return;
-    n.x=Math.max(0,x-dragSt.ox);n.y=Math.max(0,y-dragSt.oy);
-    n.el.style.left=n.x+'px';n.el.style.top=n.y+'px';redrawEdges();
+  if(drag){
+    const {x,y}=cXY(e);
+    const nx=Math.max(0,x-drag.ox), ny=Math.max(0,y-drag.oy);
+    if(Math.abs(nx-nodes[drag.id].x)>3||Math.abs(ny-nodes[drag.id].y)>3) drag.moved=true;
+    nodes[drag.id].x=nx; nodes[drag.id].y=ny;
+    nodes[drag.id].el.style.left=nx+'px'; nodes[drag.id].el.style.top=ny+'px';
+    redrawEdges();
   }
-  if(connSt){const{x,y}=cvXY(e);TL.setAttribute('x2',x);TL.setAttribute('y2',y);}
+  if(conn){
+    const {x,y}=cXY(e);
+    TP.setAttribute('d',`M${cX(conn.fromId)} ${cY(conn.fromId)} L${x} ${y}`);
+  }
 });
 
 document.addEventListener('mouseup',e=>{
-  dragSt=null;
-  if(connSt){
-    const tgt=e.target.closest('.nd');
-    if(tgt&&tgt.id!==connSt.fromId) addEdge(connSt.fromId,tgt.id,curL);
-    connSt=null; TL.setAttribute('display','none');
+  if(drag) drag=null;
+  if(conn){
+    const tgt=e.target.closest('.node');
+    if(tgt&&tgt.id!==conn.fromId) addEdge(conn.fromId,tgt.id,curLine);
+    conn=null; TP.setAttribute('display','none'); TP.setAttribute('d','');
   }
 });
 
-CV.addEventListener('click',e=>{if(e.target===CV)selNode(null);});
+CV.addEventListener('click',e=>{
+  if(e.target===CV) selectNode(null);
+});
 
-// ══ 툴바 ══════════════════════════════════════════════════════
+// ── 툴바 ─────────────────────────────────────────────────────
 document.querySelectorAll('.sw').forEach(sw=>{
+  sw.addEventListener('mousedown',e=>e.preventDefault()); // 포커스 뺏기 방지
   sw.addEventListener('click',()=>{
     document.querySelectorAll('.sw').forEach(s=>s.classList.remove('on'));
-    sw.classList.add('on'); curC=sw.dataset.c;
-    if(selId&&NS[selId]){
-      const p=PAL[curC],n=NS[selId];
-      n.color=curC; n.el.style.background=p.bg; n.el.style.borderColor=p.st;
-      n.el.querySelector('.nd-ta').style.color=p.tx;
-      n.el.querySelectorAll('.dot').forEach(d=>d.style.background=p.st);
+    sw.classList.add('on'); curCol=sw.dataset.c;
+    if(selId&&nodes[selId]){
+      const p=PAL[curCol],n=nodes[selId];
+      n.color=curCol;
+      n.el.style.background=p.bg; n.el.style.borderColor=p.st; n.inp.style.color=p.tx;
+      edges.forEach(e=>{
+        if(e.from===selId&&e.style!=='dashed'){
+          e.path.setAttribute('stroke',p.st);
+          e.path.setAttribute('marker-end',`url(#${p.mk})`);
+        }
+      });
     }
   });
 });
 
-document.getElementById('selLine').addEventListener('change',e=>curL=e.target.value);
+document.getElementById('selLine').addEventListener('change',e=>curLine=e.target.value);
 
 document.getElementById('btnAdd').addEventListener('click',()=>{
-  const x=WR.scrollLeft+80+Math.random()*260;
-  const y=WR.scrollTop+60+Math.random()*140;
-  const id=addNode(Math.round(x),Math.round(y),'개념어',curC);
-  selNode(id);
-  setTimeout(()=>{
-    const n=NS[id]; if(!n) return;
-    const ta=n.el.querySelector('.nd-ta');
-    n.el.classList.add('editing');
-    ta.readOnly=false;
-    ta.focus(); ta.select();
-  },80);
+  const x=WR.scrollLeft+100+Math.random()*200;
+  const y=WR.scrollTop+80+Math.random()*120;
+  const id=addNode(Math.round(x),Math.round(y),'',curCol);
+  selectNode(id);
+  setTimeout(()=>openEdit(id),60);
 });
 
-document.getElementById('btnDel').addEventListener('click',()=>{if(selId)removeNode(selId);});
+document.getElementById('btnDel').addEventListener('click',()=>{
+  if(selId) removeNode(selId);
+  else alert('삭제할 노드를 먼저 선택하세요.');
+});
+
 document.getElementById('btnReset').addEventListener('click',()=>{
-  if(!confirm('모든 내용을 지울까요?'))return;
-  Object.keys(NS).forEach(id=>NS[id].el.remove());NS={};NC=0;
-  ES.forEach(e=>{e.path?.remove();e.lw?.remove();});ES=[];EC=0;selId=null;
+  if(!confirm('모두 지울까요?')) return;
+  Object.keys(nodes).forEach(removeNode);
+  edges.forEach(e=>{e.path?.remove();e.lbEl?.remove();}); edges=[]; ec=0; selId=null;
 });
 
 document.getElementById('btnSave').addEventListener('click',()=>{
   const data={
-    nodes:Object.entries(NS).map(([id,n])=>({id,x:n.x,y:n.y,color:n.color,text:n.el.querySelector('.nd-ta').value})),
-    edges:ES.map(e=>({from:e.from,to:e.to,style:e.style,label:e.inp.value}))
+    nodes:Object.values(nodes).map(n=>({id:n.el.id,x:n.x,y:n.y,color:n.color,text:n.inp.value})),
+    edges:edges.map(e=>({from:e.from,to:e.to,style:e.style,label:e.lbInp.value}))
   };
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));
@@ -380,28 +501,30 @@ document.getElementById('btnSave').addEventListener('click',()=>{
 
 document.getElementById('btnLoad').addEventListener('click',()=>document.getElementById('fileIn').click());
 document.getElementById('fileIn').addEventListener('change',e=>{
-  const f=e.target.files[0];if(!f)return;
-  const rd=new FileReader();
-  rd.onload=ev=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
     try{
       const data=JSON.parse(ev.target.result);
-      Object.keys(NS).forEach(id=>NS[id].el.remove());NS={};NC=0;
-      ES.forEach(e=>{e.path?.remove();e.lw?.remove();});ES=[];EC=0;
+      Object.keys(nodes).forEach(removeNode);
+      edges.forEach(e=>{e.path?.remove();e.lbEl?.remove();}); edges=[];
       const map={};
-      data.nodes.forEach(n=>{const nid=addNode(n.x,n.y,n.text||'개념어',n.color||'purple');map[n.id]=nid;});
+      data.nodes.forEach(n=>{const ni=addNode(n.x,n.y,n.text||'',n.color||'purple');map[n.id]=ni;});
       setTimeout(()=>{
-        (data.edges||[]).forEach(e=>{const f2=map[e.from],t2=map[e.to];if(f2&&t2){const edge=addEdge(f2,t2,e.style||'solid');edge.inp.value=e.label||'';}});
-        redrawEdges();
+        (data.edges||[]).forEach(e=>{
+          const f2=map[e.from],t2=map[e.to];
+          if(f2&&t2) addEdge(f2,t2,e.style||'solid',e.label||'');
+        });
       },150);
     }catch{alert('파일을 읽을 수 없습니다.');}
   };
-  rd.readAsText(f);e.target.value='';
+  r.readAsText(f); e.target.value='';
 });
 
-// ══ 초기 샘플 ═════════════════════════════════════════════════
-addNode(120,100,'최상위 개념','purple');
-addNode(380,100,'개념 B','purple');
-addNode(640,100,'개념 C','teal');
+// ── 샘플 ────────────────────────────────────────────────────
+addNode(100,80,'상위 개념','purple');
+addNode(380,80,'개념 B','purple');
+addNode(660,80,'H₂O (굽은형)','teal');
 </script>
 </body>
 </html>
